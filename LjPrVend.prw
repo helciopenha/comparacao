@@ -36,7 +36,6 @@ Local cNmUsr 	:= ""
 Local nPerDsc 	:= 0
 Local nX := 0
 Private _nPosvlitem := aScan(aHeader,{|x| x[2] = "LR_VLRITEM" })
-                                                                               
 
 // FELIPE INICIO     15/02/2016
 	cQueryX:= "SELECT A1_INSCR FROM "+ RetSqlName("SA1") +" "
@@ -57,21 +56,28 @@ Private _nPosvlitem := aScan(aHeader,{|x| x[2] = "LR_VLRITEM" })
 SQLX->(dbclosearea())
 		
 //> Verifica se o valor inputado eh maior do que a tabela de preco
-If (nXPrcVen > nValor)
+/*If (nXPrcVen > nValor)
 
 	MsgInfo('Preço inválido! Informe um valor menor ou igual ao preco da tabela.'+Chr(13)+Chr(10)+;
 	"- Valor da tabela R$: "+Transform(nValor,"@!"))
 	lValid := .F.
 
 	Return(lValid)
-Endif
+Endif */
 
 //> Verifica percentual de desconto dado
 nPerDsc := Round(Abs(((nXPrcVen * 100) / nValor) - 100),2)
 nValDsc := nValor - nXPrcVen
 
-//If(SLF->LF_DESCPER < nPerDsc .OR. SLF->LF_DESCVAL < nValDsc)
-If(SLF->LF_DESCPER < nPerDsc)
+if nPerDsc >= 100 
+	MsgInfo('Desconto não permitido. Percentual acima de 100.')
+	lValid := .F.
+
+	Return(lValid)
+endif
+
+//If(SLF->LF_DESCPER < nPerDsc .OR. SLF->LF_DESCVAL < nValDsc)   
+If(SLF->LF_DESCPER < nPerDsc).and.nValor>=nXPrcVen
 	lValid := xValDesc()
 EndIf
 
@@ -79,8 +85,9 @@ EndIf
 If(lValid)
 	aCols[n,nPVlrUnit] 	:= nXPrcVen 					//> Valor Unitario
 	aCols[n,nPVlrItem]	:= nXPrcVen * aCols[n,nPQuant] 	//> Total do Item
-	aCols[n,nPVlDesc] 	:= nValDsc * aCols[n,nPQuant] 	//> Valor do Desconto
-	aCols[n,nPPcDesc] 	:= nPerDsc 						//> Percentual do desconto
+	aCols[n,nPVlDesc] 	:= nValDsc  * aCols[n,nPQuant] 	//> Valor do Desconto
+	aCols[n,nPPcDesc] 	:= nPerDsc 						//> Percentual do desconto    
+	nValor              := nXPrcVen
 	
 /*	M->LR_VRUNIT 	:= nXPrcVen 					//> Valor Unitario
 	M->LR_VLRITEM	:= nXPrcVen * aCols[n,nPQuant] 	//> Total Item
@@ -89,11 +96,25 @@ If(lValid)
 	M->LR_PRCTAB 	:= M->LR_VRUNIT
 	
 	aColsDet[n,PACols("LR_PRCTAB")] := M->LR_VRUNIT*/
-EndIf
+
+EndIf      
+
+
+if nValDsc < 0
+
+	aColsDet[n,nPrTb]   := nXPrcVen 
+	M->LR_PRCTAB        := nXPrcVen 
+	nValor              := nXPrcVen
+	aCols[n,nPrTb]    	:= nXPrcVen 	                //> Preço de tabela    
+	aCols[n,nPVlrUnit] 	:= nXPrcVen 					//> Valor Unitario
+	aCols[n,nPVlrItem]	:= nXPrcVen * aCols[n,nPQuant] 	//> Total do Item
+	aCols[n,nPVlDesc] 	:= 0 	                        //> Valor do Desconto    
+	aCols[n,nPPcDesc] 	:= 0  						    //> Percentual do desconto            
+endif
+
+
 //> A partir daqui
 //> Responsavel por todos os recalculos dos valores da tela de atendimento
-
-
 
 nAuxTotal := 0
 For nX := 1 To Len(aCols)
@@ -134,8 +155,8 @@ ElseIf(funname() == "LOJA701")
 	Lj7ZeraPgtos()
 	
 EndIf
-	aColsDet[n][nPrTb] := nValor
-aDesconto		:= { 0, 0, 0 }
+aColsDet[n][nPrTb] := nValor
+aDesconto		   := { 0, 0, 0 }
 
 Return(lValid)
 
